@@ -8,7 +8,7 @@
 // @grant        none
 // ==/UserScript==
 (function() {
-    if (window.location.href != "https://betteranime.net/ultimosLancamentos" || window.location.href != "https://betteranime.net/" ){
+    if (window.location.href != "https://betteranime.net/ultimosLancamentos" && window.location.href != "https://betteranime.net/" ){
         // window.alert(window.location.href)
         var skiped=0;
 
