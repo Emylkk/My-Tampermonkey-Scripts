@@ -1,71 +1,67 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
-use Carbon\Carbon;
-use Carbon\CarbonTimeZone;
-use Cron\DayOfWeekField;
+use App\Providers\RouteServiceProvider;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Foundation\Auth\VerifiesEmails;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\URL;
 
-class ProductListController extends Controller
+class VerificationController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Email Verification Controller
+    |--------------------------------------------------------------------------
+    |
+    | This controller is responsible for handling email verification for any
+    | user that recently registered with the application. Emails may also
+    | be re-sent if the user didn't receive the original email message.
+    |
+    */
 
-    public function __construct(
-        User $usuario,
-        Request $request,
-        Carbon $carbon
-    ) {
-        date_default_timezone_set('America/Sao_Paulo');
+    use VerifiesEmails;
 
-        $this->usuario = $usuario;
-        $this->request = $request;
-        $this->carbon = $carbon;
-    }
+    /**
+     * Where to redirect users after verification.
+     *
+     * @var string
+     */
+    protected $redirectTo = RouteServiceProvider::HOME;
 
-
-    public function index($id)
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct(User $user)
     {
-        date_default_timezone_set('America/Sao_Paulo');
+        $this->user = $user;
+    }
+    public function verify(request $request, $id, $hash)
+    {
+        $usuario = $this->user->find($id);
+        $request->request->add(['id', $id, 'hash' => $hash]);
+        abort_if((!$usuario), 403);
 
-        // return response()->json($this->request->is('api/admin/compras/*'));
-
-        $tz = new CarbonTimeZone();
-        $this->carbon->setTimeZone('America/Sao_Paulo');
-        return $this->carbon->now();
+        abort_if((!hash_equals((string) $request->hash, sha1($usuario->getEmailForVerification()))), 403);
 
 
-        //Horarios de funcionamento
-
-        $start = Carbon::createFromTimeString('11:49 AM');
-        $end = Carbon::createFromTimeString('08:00 PM');
-
-        if ($now->between($start, $end)) {
-            return 'entre';
+        if ($usuario->hasVerifiedEmail()) {
+            return 'usuario já verificado';
         }
-        return 'saia';
 
-
-
-        /*
-        //Transformar os dias da Semana em String para salvar no banco
-        $dayofW = serialize([0, 1, 2, 3, 4, 5, 6]);
-        //Destransformar a string em um array novamente
-        $dayofweek = unserialize($dayofW);
-        //checar se os dias batem
-        foreach ($dayofweek as $key => $dia) {
-            $hoje = date('w');
-            if ($hoje == $dia) {
-                return 'aberto';
-            }
+        if ($usuario->markEmailAsVerified()) {
+            event(new Verified($request->user()));
+            return 'verificado';
         }
-        return 'fechado';
-*/
 
-        return date('w');
-        $r = $this->usuario->where('id', $id)->first()->with('buyedProducts.product')->get();
-        return response()->json($r);
+        if ($response = $this->verified($request)) {
+            return 'verificado';
+        }
     }
 }
